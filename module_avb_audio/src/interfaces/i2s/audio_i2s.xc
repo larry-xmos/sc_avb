@@ -88,6 +88,9 @@ extern inline void i2s_master_upto_8(const clock mclk,
                                      in buffered port:32 (&?p_din)[],
                                      int num_in,
                                      int master_to_word_clock_ratio,
+#if SOUND_ACTIVITY_LEDS
+                                     chanend c_sound_activity,
+#endif
                                      streaming chanend ?c_listener,
                                      media_input_fifo_t (&?input_fifos)[]);
 

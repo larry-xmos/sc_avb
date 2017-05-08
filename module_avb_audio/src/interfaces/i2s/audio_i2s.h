@@ -87,12 +87,19 @@ inline void i2s_master_upto_8(const clock mclk,
                               in buffered port:32 (&?p_din)[],
                               int num_in,
                               int master_to_word_clock_ratio,
+#if SOUND_ACTIVITY_LEDS
+                              chanend c_sound_activity,
+#endif
                               streaming chanend ?c_listener,
                               media_input_fifo_t (&?input_fifos)[])
 {
   int mclk_to_bclk_ratio = master_to_word_clock_ratio / 64;
   unsigned int bclk_val;
   unsigned int lrclk_val = 0xFFFFFFFF;
+#if SOUND_ACTIVITY_LEDS
+  int sound_activity = 0;
+  int sound_activity_update = 0;
+#endif
 
 #if SAMPLE_COUNTER_TEST
   unsigned int sample_counter=0;
@@ -218,6 +225,13 @@ inline void i2s_master_upto_8(const clock mclk,
         if (k < num_out>>1) {
           unsigned int sample_out;
           c_listener :> sample_out;
+#if SOUND_ACTIVITY_LEDS
+#define SOUND_ACTIVITY_THRESHOLD 1000
+          if ((int)sample_out > SOUND_ACTIVITY_THRESHOLD || (int)sample_out < -SOUND_ACTIVITY_THRESHOLD)
+            sound_activity |= (1 << (j + 2 * k));
+          else
+            sound_activity &= ~(1 << (j + 2 * k));
+#endif
           sample_out = bitrev(sample_out << 8);
 #pragma xta endpoint "i2s_master_sample_output"
           p_dout[k] <: sample_out;
@@ -227,6 +241,14 @@ inline void i2s_master_upto_8(const clock mclk,
 
 #if SAMPLE_COUNTER_TEST
     sample_counter++;
+#endif
+#if SOUND_ACTIVITY_LEDS
+    sound_activity_update++;
+    if (sound_activity_update == 10000) {
+      c_sound_activity <: sound_activity;
+      outct(c_sound_activity, XS1_CT_PAUSE);
+      sound_activity_update = 0;
+    }
 #endif
 
     media_input_fifo_update_enable_ind_state(active_fifos, 0xFFFFFFFF);
@@ -424,6 +446,9 @@ static inline void i2s_master(i2s_ports_t &ports,
                               int master_to_word_clock_ratio,
                               media_input_fifo_t (&?input_fifos)[],
                               media_output_fifo_t (&?output_fifos)[],
+#if SOUND_ACTIVITY_LEDS
+                              chanend c_sound_activity,
+#endif
                               chanend media_ctl,
                               int clk_ctl_index)
 {
@@ -470,6 +495,9 @@ static inline void i2s_master(i2s_ports_t &ports,
                         p_din,
                         num_in,
                         master_to_word_clock_ratio,
+#if SOUND_ACTIVITY_LEDS
+                        c_sound_activity,
+#endif
                         c_samples_to_codec,
                         input_fifos);
     }
